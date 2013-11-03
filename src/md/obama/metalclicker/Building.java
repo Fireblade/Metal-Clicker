@@ -7,13 +7,19 @@ import static org.lwjgl.opengl.GL11.glEnd;
 import static org.lwjgl.opengl.GL11.glTexCoord2f;
 import static org.lwjgl.opengl.GL11.glVertex2i;
 
+import java.awt.Font;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Array;
 
+import org.newdawn.slick.Color;
+import org.newdawn.slick.SlickException;
 import org.newdawn.slick.opengl.Texture;
 import org.newdawn.slick.opengl.TextureLoader;
+import org.newdawn.slick.UnicodeFont;
+import org.newdawn.slick.font.effects.ColorEffect;
 
 public class Building {
 	
@@ -27,12 +33,14 @@ public class Building {
 	public Texture texture;
 	
 	public boolean selected = false;
+	private UnicodeFont font;
 	
 	Building(int id, int x, int y, String texture){
 		this.id = id;
 		this.gridx = x;
 		this.gridy = y;
 		this.texture = loadTexture(texture);
+		initFont();
 	}
 	
 	
@@ -60,6 +68,8 @@ public class Building {
 			glTexCoord2f(0,1);
 			glVertex2i(x,y+32);
 		glEnd();
+		
+		font.drawString(x+1, y+20, String.valueOf(level), Color.orange);
 	}
 	
 	
@@ -74,6 +84,17 @@ public class Building {
 		return null;
 	}
 	
+	
+	private void initFont() {
+		font = new UnicodeFont(new java.awt.Font ("Verdana", Font.BOLD, 10));
+		font.getEffects().add(new ColorEffect(java.awt.Color.white));
+		font.addNeheGlyphs();
+		try {
+			font.loadGlyphs();
+		} catch (SlickException e) {
+			e.printStackTrace();
+		}
+	}
 	
 	public int getId() {
 		return id;

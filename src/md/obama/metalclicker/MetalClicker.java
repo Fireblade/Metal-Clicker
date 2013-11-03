@@ -1,9 +1,15 @@
 package md.obama.metalclicker;
 
 import java.awt.Font;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.reflect.Array;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import md.obama.metalclicker.Building;
 
@@ -15,15 +21,17 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.input.Keyboard;
 import org.newdawn.slick.Color;
 import org.newdawn.slick.SlickException;
-import org.newdawn.slick.TrueTypeFont;
 import org.newdawn.slick.UnicodeFont;
 import org.newdawn.slick.font.effects.ColorEffect;
+import org.newdawn.slick.opengl.Texture;
+import org.newdawn.slick.opengl.TextureLoader;
 
 import static org.lwjgl.opengl.GL11.*;
 
 public class MetalClicker {
 	
 	private List<Building> builds = new ArrayList<Building>(225);
+	private Building[][] grid = new Building[15][15];
 	
 	private UnicodeFont font;
 	
@@ -46,10 +54,23 @@ public class MetalClicker {
 	public double stat_energyCost=0, stat_energyUsed=0, stat_energyGen=0;  //energy
 	public double stat_clickGen=0;                                         //Metal click boost
 	
+	//Game stats
+	public double metalBank=8;
+	public double metalPerSecond=1;
+	public long metalClicked=0;
+	public double metalPerClick=1;
+	public double metalFromClicking=0;
+	public double metalFromBuildings=0;
 	
 	private long lastFrame;
 
 	private boolean somethingIsSelected=false;
+	private boolean placing = false;
+	private boolean moving = false;
+	
+	private int place_id;
+	private String place_texture;
+	private Texture texture;
 
 	private Building selecting=null;
 	
@@ -60,7 +81,9 @@ public class MetalClicker {
 		init();             //initialize
 		lastFrame = getTime();
 		
-		builds.add(new Building(1,5,5,"test"));
+		Building ding = new Building(1,5,5,"test");
+		builds.add(ding);
+		grid[5][5] = ding;
 		
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
@@ -72,6 +95,7 @@ public class MetalClicker {
             gridx = Math.round(((mx-XOFFSET)/32));
             gridy = Math.round(((my-16)/32));
             
+            input();
             
             render();
             //System.out.println(delta);
@@ -89,6 +113,61 @@ public class MetalClicker {
 		
 	}
 	
+	private void input() {
+		while (Keyboard.next()) {
+			if (Keyboard.getEventKey() == Keyboard.KEY_1 && Keyboard.getEventKeyState()) {
+				System.out.println("pressed 1");
+				Random gen = new Random(System.currentTimeMillis());
+				placing = true;
+				place_id = 1;       //id of the building. extractor
+				place_texture = "test"+gen.nextInt(3);
+				texture = loadTexture(place_texture);
+//				if(grid[gridx][gridy] == null) {
+//					
+//					Building ding = new Building(1,gridx,gridy,"test"+gen.nextInt(3));
+//					builds.add(ding);
+//					grid[gridx][gridy] = ding;
+//				} else System.out.println("Spot is used");
+			}
+		}
+		
+		if(placing) {
+			if(Mouse.isButtonDown(0)){
+				if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
+					if(grid[gridx][gridy] == null) {
+						Building ding = new Building(1, gridx, gridy, place_texture);
+						builds.add(ding);
+						grid[gridx][gridy] = ding;
+						System.out.println("Placed "+ getName(place_id));
+						placing = false;
+					} else System.out.println("Grid location already used");
+				}
+			}
+		}
+	}
+
+	private String getName(int id) {
+		String string = "ERROR";
+		switch (id) {
+			case 1:
+				string = "Metal Extractor";
+				break;
+			case 2:
+				string = "Booster";
+				break;
+			case 3:
+				string = "Solar Panel";
+				break;
+			case 4:
+				string = "Water Mill";
+				break;
+			case 5:
+				string = "Clicking Hut";
+				break;
+		}
+		return string;
+	}
+
 	private void render() {
 		Color.white.bind();
 		glDisable(GL_TEXTURE_2D);
@@ -118,6 +197,22 @@ public class MetalClicker {
 			}
 		}
 		
+		if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
+			int x = (gridx*32)+MetalClicker.XOFFSET;
+			int y = (gridy*32)+16;
+			glColor3f(.75f, 0.5f, 0f);
+			glBegin(GL_LINES);
+				glVertex2i(x,y);
+				glVertex2i(x,y+32);
+				glVertex2i(x,y+32);
+				glVertex2i(x+32,y+32);
+				glVertex2i(x+32,y+32);
+				glVertex2i(x+32,y);
+				glVertex2i(x+32,y);
+				glVertex2i(x,y);
+			glEnd();
+		}
+		
 
 		glEnable(GL_TEXTURE_2D);
 		
@@ -125,8 +220,6 @@ public class MetalClicker {
 			if(Mouse.isButtonDown(0) && ding.inBounds(gridx, gridy) && ding!=selecting){
 				selecting = ding;
 				ding.selected = true;
-				System.out.println("You clicked me!");
-				
 				getStats(ding);
 			}
 			ding.draw();
@@ -134,6 +227,26 @@ public class MetalClicker {
 		
 		font.drawString(0, 0, mx + ", " + my, Color.yellow);
 		font.drawString(0, 24, gridx + ", " + gridy, Color.yellow);
+		if(placing) {
+			font.drawString(0, 38, "Placing = true", Color.green);
+			texture.bind();
+			int x = (gridx*32)+XOFFSET;
+			int y = (gridy*32)+16;
+			
+			glColor3f(1,1,1); //White
+			glBegin(GL_QUADS);
+				glTexCoord2f(0,0);
+				glVertex2i(x,y);
+				glTexCoord2f(1,0);
+				glVertex2i(x+32,y);
+				glTexCoord2f(1,1);
+				glVertex2i(x+32,y+32);
+				glTexCoord2f(0,1);
+				glVertex2i(x,y+32);
+			glEnd();
+		}
+		else font.drawString(0, 38, "Placing = false", Color.red);
+		
 		
 		if(selecting!=null){ //if we selected a building, Display its stats.
 			drawStats();
@@ -166,6 +279,17 @@ public class MetalClicker {
 
 	}
 
+	private Texture loadTexture(String key){
+		try {
+			return TextureLoader.getTexture("PNG", new FileInputStream(new File("res/" + key + ".png")));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
 	public String makeString(Double make){
 		if(make>=1000000000) {
 			return df.format(make/1000000000)+"b"; }
@@ -178,8 +302,6 @@ public class MetalClicker {
 	
 	
 	private void initFont() {
-		//Font awtFont = new Font("Times New Roman", Font.BOLD, 12);
-		//font = new TrueTypeFont(awtFont, true);
 		font = new UnicodeFont(new java.awt.Font ("Verdana", Font.BOLD, 12));
 		font.getEffects().add(new ColorEffect(java.awt.Color.white));
 		font.addNeheGlyphs();
@@ -188,9 +310,7 @@ public class MetalClicker {
 		} catch (SlickException e) {
 			e.printStackTrace();
 		}
-
 	}
-
 
 	
 	public void init() {
@@ -246,4 +366,5 @@ public class MetalClicker {
 	public static void main(String[] args) {
 		new MetalClicker();
 	}
+
 }
