@@ -65,14 +65,15 @@ public class MetalClicker {
 	private int type3energy = 0;
 	
 	//Game stats
-	public double metalBank=100;
+	public double metalBank=10000;
+	public double metalBankShow=0;
 	public double metalPerSecond=1;
 	public long metalClicked=0;
 	public double metalPerClick=1;
 	public double metalFromClicking=0;
 	public double metalFromBuildings=0;
 	//Energy
-	public double energyMax=100; //Max allowed energy
+	public double energyMax=0; //Max allowed energy
 	public double energyUse=0; //Current energy consumption
 	
 	private long lastFrame;
@@ -98,9 +99,10 @@ public class MetalClicker {
 		Building ding = new Building(1,5,5,"test");
 		builds.add(ding);
 		grid[5][5] = ding;
-		buttons.add(new Button("buyextractor",320, 32, "extractor", 32, 32, 1, this));
-		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this));
-		buttons.add(new Button("upgrade",16, 380, "upgrade", 64, 32, 2, this));
+		buttons.add(new Button("buyextractor",320, 32, "extractor", 32, 32, 1, this, 32, 32));
+		buttons.add(new Button("buybooster",320, 64, "test", 32, 32, 1, this, 32, 32));
+		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this, 32, 32));
+		buttons.add(new Button("upgrade",16, 380, "upgrade", 64, 32, 2, this, 48, 16));
 		
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
@@ -112,8 +114,12 @@ public class MetalClicker {
             gridx = Math.round(((mx-XOFFSET)/32));
             gridy = Math.round(((my-16)/32));
             
-            input();
+            metalBankShow += ((metalBank - metalBankShow)/(fps/3)); 
+            //We will display the metal as a constant increase instead of a jump.
+            //We want a sudden burst so it slows down to where the play can see it
             
+            
+            input();
             render();
             //System.out.println(delta);
             ticks++;
@@ -142,18 +148,51 @@ public class MetalClicker {
 			metalBank += this.metalPerSecond;
 			metalFromBuildings += metalPerSecond;
 		}
+		updateEnergy();
+	}
+
+	private void updateEnergy() {
+		energyMax = 2;              //base reset
+		energyUse = 0;                //base reset
+		double enTemp, boost;
+		float cutt;
+		for(Building ding : builds){
+			enTemp=0;
+			enTemp += ding.energyGen;
+			
+			cutt = getBoostCutt(ding.id);
+			boost = getBoost(ding.gridx, ding.gridy);
+			if (boost != 0) boost = (boost/cutt);
+			boost+=1;  //Reset the base boost multiplier to 1
+			enTemp *= boost;
+			
+			ding.boostBy = boost;
+			
+			energyMax += enTemp;
+			energyUse += ding.energyUsed;
+		}
+	}
+
+	private float getBoostCutt(int id) {
+		if(id==1) return 1f;    //extractor
+		if(id==2) return 1f;    //booster
+		if(id==3) return 1.75f;    //solar panel // Boost is halved.
+		return 1;
 	}
 
 	private double getIncome() {
 		double meGen=0, meGenTemp;
 		double enGen=0, enGenTemp;
 		double boost;
+		float cutt;
 		for(Building ding : builds){
 			if (ding.id==1){ //Extractor
 				meGenTemp = ding.metalGen;
 				
+				cutt = getBoostCutt(ding.id);
 				boost = getBoost(ding.gridx, ding.gridy);
-				ding.boostBy = boost;
+				if (boost != 0) boost = (boost/cutt);
+				boost+=1;
 				
 				meGenTemp *= boost;
 				meGen += meGenTemp;
@@ -163,7 +202,7 @@ public class MetalClicker {
 	}
 
 	private double getBoost(int x, int y) {
-		double boost = 1;
+		double boost = 0;
 		if (x!=14 && grid[x+1][y]!=null) boost += grid[x+1][y].boostGen;
 		if (x!=0  && grid[x-1][y]!=null) boost += grid[x-1][y].boostGen;
 		if (y!=14 && grid[x][y+1]!=null) boost += grid[x][y+1].boostGen;
@@ -200,7 +239,7 @@ public class MetalClicker {
 							if(metalBank >= meCost && energyMax >= (energyUse + enCost) ) {
 								metalBank-= meCost;
 								addTypeCostMetal(place_id, 1);
-								Building ding = new Building(1, gridx, gridy, place_texture);
+								Building ding = new Building(place_id, gridx, gridy, place_texture);
 								builds.add(ding);
 								grid[gridx][gridy] = ding;
 								setStartStats(place_id, ding);
@@ -220,7 +259,24 @@ public class MetalClicker {
 	private void setStartStats(int id, Building ding) {
 		if(id==1){ //extractor 
 			ding.metalGen = 1;
+			ding.metalCost = 15;
+			ding.metalUsed = type1metal;
+			ding.energyCost = 1;
+			ding.energyUsed = type1energy;
 		}
+		if(id==2){ //Booster
+			ding.metalCost = 25;
+			ding.metalUsed = type2metal;
+			ding.energyCost = 1.25f;
+			ding.energyUsed = type2energy;
+			ding.boostGen  = 0.0825f;
+		}
+		if(id==3){ //Solar panel
+			ding.metalCost = 11;
+			ding.metalUsed = type3metal;
+			ding.energyGen = 1;
+		}
+		updateEnergy();
 	}
 
 	private int getTypeCostMetal(int id) {
@@ -229,6 +285,7 @@ public class MetalClicker {
 		if(id==3) return type3metal;
 		return 0;
 	}
+	
 	private int getTypeCostEnergy(int id) {
 		if(id==1) return type1energy;    //extractor
 		if(id==2) return type2energy;
@@ -236,16 +293,32 @@ public class MetalClicker {
 		return 0;
 	}
 	private void addTypeCostMetal(int id, int add) { //add = How much to add by, can be negative number
-		if(id==1) type1metal += add;    //extractor
-		if(id==2) type2metal += add;
-		if(id==3) type3metal += add;
+		if(id==1) type1metal += add;     //extractor
+		if(id==2) type2metal += (add*3); //Booster, increase by 3
+		if(id==3) type3metal += add;     //solar panel
 	}
 
 	private void selectExtractor() {
-		Random gen = new Random(System.currentTimeMillis());
+		//Random gen = new Random(System.currentTimeMillis());
 		placing = true;
 		place_id = 1;       //id of the building. extractor
 		place_texture = "extractor";//+gen.nextInt(3);
+		texture = loadTexture(place_texture);
+	}
+	
+	private void selectBooster() {
+		Random gen = new Random(System.currentTimeMillis());
+		placing = true;
+		place_id = 2;       //id of the building. Booster
+		place_texture = "test"+gen.nextInt(3);
+		texture = loadTexture(place_texture);
+	}
+	
+	private void selectSolarPanel() {
+		//Random gen = new Random(System.currentTimeMillis());
+		placing = true;
+		place_id = 3;       //id of the building. solar panel
+		place_texture = "solarpanel";//+gen.nextInt(3);
 		texture = loadTexture(place_texture);
 	}
 
@@ -255,19 +328,61 @@ public class MetalClicker {
 				System.out.println(name);
 				selectExtractor();
 				break;
-			case "upgrade":
+			case "buybooster":
 				System.out.println(name);
-				selecting.level+=1;
-				selecting.metalCost  = (selecting.metalCost+2)*1.21;
-				selecting.metalGen = (selecting.metalGen+0.70+(selecting.level/50))*1.08765f;
-				selecting.energyUsed += selecting.energyCost;
-				selecting.energyCost = (selecting.energyCost+0.01)*1.075;
-				getStats(selecting);//update visuals, Show the new stats
-				perSecond(false);   //update visuals, false so we don't add metal.
+				selectBooster();
+				break;
+			case "buysolarpanel":
+				System.out.println(name);
+				selectSolarPanel();
+				break;
+				
+			case "upgrade":
+				System.out.println(name + ": " + getName(selecting.id));
+				double enCost = selecting.energyCost;
+				double meCost = selecting.metalCost;
+				double enIncr = selecting.energyGen;
+				float cutt = getBoostCutt(selecting.id);
+				double boost = getBoost(selecting.gridx, selecting.gridy);
+				if (boost != 0) boost = (boost/cutt)+1;
+				boost+=1;
+				enIncr*=boost;
+				//if the upgrade of the energy with the boost adds onto it
+				if (metalBank >= meCost && (energyMax+enIncr) >= (energyUse + enCost) ) {
+					metalBank -= meCost;
+					     if(selecting.id==1) upgradeExtractor();
+					else if(selecting.id==2) upgradeBooster();
+					else if(selecting.id==3) upgradeSolarPanel();
+					
+					
+					selecting.level+=1;
+					selecting.energyUsed += selecting.energyCost;
+					getStats(selecting);//update visuals, Show the new stats
+					perSecond(false);   //update visuals, false so we don't add metal.
+				} else System.out.println("not enough metal and/or energy");
 				break;
 			
 		}
 		
+	}
+
+	private void upgradeExtractor() {
+		selecting.metalCost  = (selecting.metalCost+1.5)*1.19;
+		selecting.metalGen = (selecting.metalGen+0.70+(selecting.level/50))*1.08765f;
+		selecting.energyCost = (selecting.energyCost+0.01)*1.075;
+	}
+	
+	private void upgradeBooster() {
+		selecting.metalCost  = (selecting.metalCost+3)*1.3;
+		selecting.energyCost = (selecting.energyCost)*1.10345;
+		selecting.boostGen   = (selecting.boostGen+0.001)*1.089;
+	}
+	
+	private void upgradeSolarPanel() {
+		selecting.metalCost  = (selecting.metalCost+2)*1.28;
+		//selecting.energyGen   = (selecting.energyGen+1)*1.02; //metal clicker 1 formula
+		selecting.energyGen   = (selecting.energyGen+1)+(selecting.level/10); //
+		selecting.boostGen   = (selecting.boostGen+0.005);
 	}
 
 	private String getName(int id) {
@@ -354,9 +469,11 @@ public class MetalClicker {
 		}
 		
 		
-		font.drawString(0, 0, mx + ", " + my, Color.yellow);
-		font.drawString(0, 24, gridx + ", " + gridy, Color.yellow);
-		font.drawString(350, 40, String.valueOf(type1metal), Color.yellow);
+		font.drawString(0, 52, mx + ", " + my, Color.yellow);
+		font.drawString(0, 66, gridx + ", " + gridy, Color.yellow);
+		font.drawString(352, 40, String.valueOf(type1metal), Color.yellow);
+		font.drawString(352, 70, String.valueOf(type2metal), Color.yellow);
+		font.drawString(352, 102, String.valueOf(type3metal), Color.yellow);
 		if(placing) {
 			font.drawString(0, 38, "Placing = true", Color.green);
 			if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
@@ -387,8 +504,14 @@ public class MetalClicker {
 	}
 
 	private void drawInfo() { //Draw information like energy and metal 
+		font.drawString(0, 0, "Energy Limit:", Color.blue);
+		font.drawString(200, 0, makeString(energyMax), Color.blue);
+		font.drawString(0, 14, "Energy used:", Color.blue);
+		font.drawString(200, 14, makeString(energyUse), Color.blue);
+		
 		font.drawString(0, 482, "Current Metal:", Color.red);
-		font.drawString(200, 482, makeString(metalBank), Color.orange);
+		font.drawString(200, 482, makeString(metalBankShow), Color.orange);
+		font.drawString(300, 482, makeString(metalBank - metalBankShow), Color.orange);
 		font.drawString(0, 496, "Metal per second:", Color.red);
 		font.drawString(200, 496, makeString(metalPerSecond), Color.orange);
 		
@@ -399,16 +522,46 @@ public class MetalClicker {
 		font.drawString(200, 200, String.valueOf(stat_level), Color.yellow);
 		font.drawString(0, 214, "Cost in Metal:", Color.yellow);
 		font.drawString(200, 214, makeString(stat_metalCost), Color.yellow);
-		font.drawString(0, 228, "Cost in Energy:", Color.yellow);
-		font.drawString(200, 228, makeString(stat_energyCost), Color.yellow);
-		font.drawString(0, 242, "Total energy used:", Color.yellow);
-		font.drawString(200, 242, makeString(stat_energyUsed), Color.yellow);
-		font.drawString(0, 260, "Base Metal production:", Color.yellow);
-		font.drawString(200, 260, makeString(stat_metalGen), Color.yellow);
-		font.drawString(0, 274, "Metal production boosted:", Color.yellow);
-		font.drawString(200, 274, makeString(stat_metalGen * stat_boostBy), Color.yellow);
-		font.drawString(0, 288, "Boostiplier:", Color.yellow);
-		font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
+		drawMoreStats();
+	}
+
+	private void drawMoreStats() {
+		if(stat_id==1){
+			font.drawString(0, 228, "Cost in Energy:", Color.yellow);
+			font.drawString(200, 228, makeString(stat_energyCost), Color.yellow);
+			font.drawString(0, 242, "Total energy used:", Color.yellow);
+			font.drawString(200, 242, makeString(stat_energyUsed), Color.yellow);
+			font.drawString(0, 260, "Base Metal production:", Color.yellow);
+			font.drawString(200, 260, makeString(stat_metalGen), Color.yellow);
+			font.drawString(0, 274, "Metal production boosted:", Color.yellow);
+			font.drawString(200, 274, makeString(stat_metalGen * stat_boostBy), Color.yellow);
+			font.drawString(0, 288, "Boostiplier:", Color.yellow);
+			font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
+		}
+		if(stat_id==2){
+			font.drawString(0, 228, "Cost in Energy:", Color.yellow);
+			font.drawString(200, 228, makeString(stat_energyCost), Color.yellow);
+			font.drawString(0, 242, "Total energy used:", Color.yellow);
+			font.drawString(200, 242, makeString(stat_energyUsed), Color.yellow);
+			font.drawString(0, 260, "Boosts by:", Color.yellow);
+			font.drawString(200, 260, makeString(stat_boostGen), Color.yellow);
+			//font.drawString(0, 274, "Metal production boosted:", Color.yellow);
+			//font.drawString(200, 274, makeString(stat_metalGen * stat_boostBy), Color.yellow);
+			//font.drawString(0, 288, "Boostiplier:", Color.yellow);
+			//font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
+		}
+		if(stat_id==3){
+			font.drawString(0, 228, "Energy produced:", Color.yellow);
+			font.drawString(200, 228, makeString(stat_energyGen), Color.yellow);
+			font.drawString(0, 242, "Energy produced boosted:", Color.yellow);
+			font.drawString(200, 242, makeString(stat_energyGen * selecting.boostBy), Color.yellow);
+			font.drawString(0, 260, "Boostiplier:", Color.yellow);
+			font.drawString(200, 260, makeString(selecting.boostBy), Color.yellow);
+			font.drawString(0, 274, "Boosts by:", Color.yellow);
+			font.drawString(200, 274, makeString(stat_boostGen), Color.yellow);
+			//font.drawString(0, 288, "Boostiplier:", Color.yellow);
+			//font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
+		}
 	}
 
 	private void getStats(Building ding) {
@@ -454,7 +607,7 @@ public class MetalClicker {
 	
 	
 	private void initFont() {
-		font = new UnicodeFont(new java.awt.Font ("Verdana", Font.BOLD, 12));
+		font = new UnicodeFont(new java.awt.Font ("Vani", Font.BOLD, 12));
 		font.getEffects().add(new ColorEffect(java.awt.Color.white));
 		font.addNeheGlyphs();
 		try {
