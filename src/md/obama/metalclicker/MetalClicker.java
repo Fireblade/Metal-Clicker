@@ -54,14 +54,26 @@ public class MetalClicker {
 	public double stat_metalCost=0, stat_metalUsed=0, stat_metalGen=0;     //Metal  related
 	public double stat_energyCost=0, stat_energyUsed=0, stat_energyGen=0;  //energy
 	public double stat_clickGen=0;                                         //Metal click boost
+	private double stat_boostGen=0, stat_boostBy=0;
+	
+	//Buildings cost
+	private int type1metal  = 10; //extractor
+	private int type1energy = 1;
+	private int type2metal  = 20; //booster
+	private int type2energy = 2;
+	private int type3metal  = 8;  //solar panel
+	private int type3energy = 0;
 	
 	//Game stats
-	public double metalBank=8;
+	public double metalBank=100;
 	public double metalPerSecond=1;
 	public long metalClicked=0;
 	public double metalPerClick=1;
 	public double metalFromClicking=0;
 	public double metalFromBuildings=0;
+	//Energy
+	public double energyMax=100; //Max allowed energy
+	public double energyUse=0; //Current energy consumption
 	
 	private long lastFrame;
 
@@ -83,12 +95,12 @@ public class MetalClicker {
 		init();             //initialize
 		lastFrame = getTime();
 		
-		Building ding = new Building(1,5,5,"solarpanel");
+		Building ding = new Building(1,5,5,"test");
 		builds.add(ding);
 		grid[5][5] = ding;
 		buttons.add(new Button("buyextractor",320, 32, "extractor", 32, 32, 1, this));
 		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this));
-		buttons.add(new Button("upgrade",16, 380, "upgrade", 48, 16, 2, this));
+		buttons.add(new Button("upgrade",16, 380, "upgrade", 64, 32, 2, this));
 		
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
@@ -141,6 +153,7 @@ public class MetalClicker {
 				meGenTemp = ding.metalGen;
 				
 				boost = getBoost(ding.gridx, ding.gridy);
+				ding.boostBy = boost;
 				
 				meGenTemp *= boost;
 				meGen += meGenTemp;
@@ -167,22 +180,6 @@ public class MetalClicker {
 			}
 		}
 		
-		if(placing) {
-			if(Mouse.isButtonDown(0)){ //Left click
-				if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
-					if(grid[gridx][gridy] == null) {
-						Building ding = new Building(1, gridx, gridy, place_texture);
-						builds.add(ding);
-						grid[gridx][gridy] = ding;
-						System.out.println("Placed "+ getName(place_id));
-						placing = false;
-					} else System.out.println("Grid location already used");
-				}
-			}
-			else if(Mouse.isButtonDown(1)){ //Right click
-				placing = false;
-			}
-		}
 		while(Mouse.next()) {
 			if(Mouse.isButtonDown(0) && Mouse.getEventButtonState()){ //Left click
 				if (!(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14)) { //if clicked outside playfield
@@ -195,15 +192,60 @@ public class MetalClicker {
 						}
 					}
 				}
+				if(placing){
+					if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
+						if(grid[gridx][gridy] == null) {
+							int meCost = getTypeCostMetal(place_id);
+							int enCost = getTypeCostEnergy(place_id);
+							if(metalBank >= meCost && energyMax >= (energyUse + enCost) ) {
+								metalBank-= meCost;
+								addTypeCostMetal(place_id, 1);
+								Building ding = new Building(1, gridx, gridy, place_texture);
+								builds.add(ding);
+								grid[gridx][gridy] = ding;
+								setStartStats(place_id, ding);
+								System.out.println("Placed "+ getName(place_id));
+								placing = false;
+							}
+						} else System.out.println("Grid location already used");
+					}
+				}
+			}else if(Mouse.isButtonDown(1)){ //Right click
+					placing = false;
+					moving  = false;
 			}
 		}
+	}
+
+	private void setStartStats(int id, Building ding) {
+		if(id==1){ //extractor 
+			ding.metalGen = 1;
+		}
+	}
+
+	private int getTypeCostMetal(int id) {
+		if(id==1) return type1metal;    //extractor
+		if(id==2) return type2metal;
+		if(id==3) return type3metal;
+		return 0;
+	}
+	private int getTypeCostEnergy(int id) {
+		if(id==1) return type1energy;    //extractor
+		if(id==2) return type2energy;
+		if(id==3) return type3energy;
+		return 0;
+	}
+	private void addTypeCostMetal(int id, int add) { //add = How much to add by, can be negative number
+		if(id==1) type1metal += add;    //extractor
+		if(id==2) type2metal += add;
+		if(id==3) type3metal += add;
 	}
 
 	private void selectExtractor() {
 		Random gen = new Random(System.currentTimeMillis());
 		placing = true;
 		place_id = 1;       //id of the building. extractor
-		place_texture = "test"+gen.nextInt(3);
+		place_texture = "extractor";//+gen.nextInt(3);
 		texture = loadTexture(place_texture);
 	}
 
@@ -217,11 +259,11 @@ public class MetalClicker {
 				System.out.println(name);
 				selecting.level+=1;
 				selecting.metalCost  = (selecting.metalCost+2)*1.21;
-				selecting.metalGen = (selecting.metalGen+0.70)*1.065f;
+				selecting.metalGen = (selecting.metalGen+0.70+(selecting.level/50))*1.08765f;
 				selecting.energyUsed += selecting.energyCost;
 				selecting.energyCost = (selecting.energyCost+0.01)*1.075;
 				getStats(selecting);//update visuals, Show the new stats
-				perSecond(false);   //update visuals, false so we dont add metal.
+				perSecond(false);   //update visuals, false so we don't add metal.
 				break;
 			
 		}
@@ -314,6 +356,7 @@ public class MetalClicker {
 		
 		font.drawString(0, 0, mx + ", " + my, Color.yellow);
 		font.drawString(0, 24, gridx + ", " + gridy, Color.yellow);
+		font.drawString(350, 40, String.valueOf(type1metal), Color.yellow);
 		if(placing) {
 			font.drawString(0, 38, "Placing = true", Color.green);
 			if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
@@ -360,6 +403,12 @@ public class MetalClicker {
 		font.drawString(200, 228, makeString(stat_energyCost), Color.yellow);
 		font.drawString(0, 242, "Total energy used:", Color.yellow);
 		font.drawString(200, 242, makeString(stat_energyUsed), Color.yellow);
+		font.drawString(0, 260, "Base Metal production:", Color.yellow);
+		font.drawString(200, 260, makeString(stat_metalGen), Color.yellow);
+		font.drawString(0, 274, "Metal production boosted:", Color.yellow);
+		font.drawString(200, 274, makeString(stat_metalGen * stat_boostBy), Color.yellow);
+		font.drawString(0, 288, "Boostiplier:", Color.yellow);
+		font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
 	}
 
 	private void getStats(Building ding) {
@@ -374,7 +423,8 @@ public class MetalClicker {
 		stat_energyUsed = ding.energyUsed;
 		stat_energyGen  = ding.energyGen;
 		stat_clickGen   = ding.clickGen;
-
+		stat_boostGen   = ding.boostGen;
+		stat_boostBy    = ding.boostBy;
 	}
 
 	private Texture loadTexture(String key){

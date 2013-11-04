@@ -28,7 +28,7 @@ public class Building {
 	public int gridx, gridy;                                 //Grid location on the map
 	public double metalCost=15, metalUsed=0, metalGen=0;     //Metal  related
 	public double energyCost=1, energyUsed=0, energyGen=0;   //energy
-	public double boostGen=0;
+	public double boostGen=0, boostBy=1;
 	public double clickGen=0;
 	
 	public Texture texture;
