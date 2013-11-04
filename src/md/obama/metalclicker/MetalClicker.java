@@ -68,6 +68,7 @@ public class MetalClicker {
 	private boolean somethingIsSelected=false;
 	private boolean placing = false;
 	private boolean moving = false;
+	private boolean selling = false;
 	
 	private int place_id;
 	private String place_texture;
@@ -82,10 +83,12 @@ public class MetalClicker {
 		init();             //initialize
 		lastFrame = getTime();
 		
-		Building ding = new Building(1,5,5,"test");
+		Building ding = new Building(1,5,5,"solarpanel");
 		builds.add(ding);
 		grid[5][5] = ding;
-		buttons.add(new Button("buyextractor",320, 32, "test"));
+		buttons.add(new Button("buyextractor",320, 32, "extractor", 32, 32, 1, this));
+		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this));
+		buttons.add(new Button("upgrade",16, 380, "upgrade", 48, 16, 2, this));
 		
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
@@ -120,7 +123,7 @@ public class MetalClicker {
 	}
 	
 	private void perSecond(boolean add) { //This calls every second and updates resources
-		metalPerSecond = 0;
+		metalPerSecond = 0.1;             //Base metal per second
 		double income = getIncome();
 		metalPerSecond += income;
 		if(add){                                  //if false, we dont add
@@ -160,17 +163,7 @@ public class MetalClicker {
 		while (Keyboard.next()) {
 			if (Keyboard.getEventKey() == Keyboard.KEY_1 && Keyboard.getEventKeyState()) {
 				System.out.println("pressed 1");
-				Random gen = new Random(System.currentTimeMillis());
-				placing = true;
-				place_id = 1;       //id of the building. extractor
-				place_texture = "test"+gen.nextInt(3);
-				texture = loadTexture(place_texture);
-//				if(grid[gridx][gridy] == null) {
-//					
-//					Building ding = new Building(1,gridx,gridy,"test"+gen.nextInt(3));
-//					builds.add(ding);
-//					grid[gridx][gridy] = ding;
-//				} else System.out.println("Spot is used");
+				selectExtractor();
 			}
 		}
 		
@@ -190,22 +183,45 @@ public class MetalClicker {
 				placing = false;
 			}
 		}
-		
-		if(Mouse.isButtonDown(0)){ //Left click
-			if (!(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14)) { //if clicked outside playfield
-				for(Button bton : buttons) {
-					if(bton.inBounds(mx, my)) {
-						pressedButton(bton.name);
+		while(Mouse.next()) {
+			if(Mouse.isButtonDown(0) && Mouse.getEventButtonState()){ //Left click
+				if (!(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14)) { //if clicked outside playfield
+					for(Button bton : buttons) {
+						if(bton.inBounds(mx, my)) {
+							if(bton.canWeDoThis()){
+								pressedButton(bton.name);
+								break;
+							}
+						}
 					}
 				}
 			}
 		}
 	}
 
+	private void selectExtractor() {
+		Random gen = new Random(System.currentTimeMillis());
+		placing = true;
+		place_id = 1;       //id of the building. extractor
+		place_texture = "test"+gen.nextInt(3);
+		texture = loadTexture(place_texture);
+	}
+
 	private void pressedButton(String name) {
 		switch(name) {
 			case "buyextractor":
 				System.out.println(name);
+				selectExtractor();
+				break;
+			case "upgrade":
+				System.out.println(name);
+				selecting.level+=1;
+				selecting.metalCost  = (selecting.metalCost+2)*1.21;
+				selecting.metalGen = (selecting.metalGen+0.70)*1.065f;
+				selecting.energyUsed += selecting.energyCost;
+				selecting.energyCost = (selecting.energyCost+0.01)*1.075;
+				getStats(selecting);//update visuals, Show the new stats
+				perSecond(false);   //update visuals, false so we dont add metal.
 				break;
 			
 		}
@@ -290,9 +306,9 @@ public class MetalClicker {
 			ding.draw();
 		}
 		for(Button bton : buttons) { //Draw buttons
-			if(bton.show) {
+			//if(bton.show) {
 				bton.draw();
-			}
+			//}
 		}
 		
 		
@@ -329,9 +345,9 @@ public class MetalClicker {
 
 	private void drawInfo() { //Draw information like energy and metal 
 		font.drawString(0, 482, "Current Metal:", Color.red);
-		font.drawString(200, 482, String.valueOf(metalBank), Color.orange);
+		font.drawString(200, 482, makeString(metalBank), Color.orange);
 		font.drawString(0, 496, "Metal per second:", Color.red);
-		font.drawString(200, 496, String.valueOf(metalPerSecond), Color.orange);
+		font.drawString(200, 496, makeString(metalPerSecond), Color.orange);
 		
 	}
 
@@ -373,12 +389,16 @@ public class MetalClicker {
 	}
 	
 	public String makeString(Double make){
-		if(make>=1000000000) {
-			return df.format(make/1000000000)+"b"; }
+		if(make>=1000000000000000L) {
+			return df.format(make/1000000000000000L)+"Q"; }
+		else if(make>=1000000000000L) {
+			return df.format(make/1000000000000L)+"T"; }
+		else if(make>=1000000000) {
+			return df.format(make/1000000000)+"B"; }
 		else if(make>=1000000) {
-				return df.format(make/1000000)+"m"; }
+				return df.format(make/1000000)+"M"; }
 			else if(make>=1000) {
-				return df.format(make/1000)+"k"; }
+				return df.format(make/1000)+"K"; }
 		return df.format(make);
 	}
 	
@@ -447,6 +467,14 @@ public class MetalClicker {
 	
 	public static void main(String[] args) {
 		new MetalClicker();
+	}
+
+	public boolean isSelling() {
+		return selling;
+	}
+
+	public Building getSelecting() {
+		return selecting;
 	}
 
 }
