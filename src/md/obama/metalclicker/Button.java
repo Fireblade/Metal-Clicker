@@ -19,7 +19,7 @@ public class Button {
 	
 	public String name;                                      //Name of the button
 	public int x, y;                                 //Grid location on the map
-	public int width, height;
+	public int width, height, bx, by;
 	public int type;
 	
 	public Texture texture;
@@ -27,7 +27,7 @@ public class Button {
 	
 	public boolean show = true;
 	
-	Button(String name, int x, int y, String texture, int width, int height, int type, MetalClicker game){
+	Button(String name, int x, int y, String texture, int width, int height, int type, MetalClicker game, int bx, int by){
 		this.name = name;
 		this.x = x;
 		this.y = y;
@@ -36,11 +36,13 @@ public class Button {
 		this.height = height;
 		this.type = type;
 		this.game = game;
+		this.bx = bx;
+		this.by = by;
 	}
 	
 	boolean inBounds(int mousex, int mousey){
 		if(mousex >= x && mousey >= y
-			&& mousex <= x+width && mousey <= y+height){
+			&& mousex <= x+bx && mousey <= y+by){
 			return true;
 		}
 		return false;
