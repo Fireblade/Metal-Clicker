@@ -31,6 +31,7 @@ public class MetalClicker {
 	
 	private List<Building> builds = new ArrayList<Building>(225);
 	private Building[][] grid = new Building[15][15];
+	private String[][] tiles = new String[30][30];
 	
 	private List<Button> buttons = new ArrayList<Button>(10); //Amount of buttons
 	
@@ -58,9 +59,9 @@ public class MetalClicker {
 	
 	//Buildings cost
 	private int type1metal  = 10; //extractor
-	private int type1energy = 1;
+	private int type1energy = 2;
 	private int type2metal  = 20; //booster
-	private int type2energy = 2;
+	private int type2energy = 1;
 	private int type3metal  = 8;  //solar panel
 	private int type3energy = 0;
 	
@@ -72,6 +73,8 @@ public class MetalClicker {
 	public double metalPerClick=1;
 	public double metalFromClicking=0;
 	public double metalFromBuildings=0;
+	public double base_mps=0.1;
+	public double base_energy=2;
 	//Energy
 	public double energyMax=0; //Max allowed energy
 	public double energyUse=0; //Current energy consumption
@@ -85,11 +88,23 @@ public class MetalClicker {
 	
 	private int place_id;
 	private String place_texture;
+	
 	private Texture texture;
+	private Texture tileGrass;
+	private Texture tileWater;
+	private Texture tileSand;
+	private Texture tileSandCactus0;
+	private Texture tileSandCactus1;
+	private Texture tileSandCactus2;
+	private Texture tileSandCactus3;
+	private Texture tileMetalTL0;
+	private Texture tileMetalTR0;
+	private Texture tileMetalBL0;
+	private Texture tileMetalBR0;
 
 	private Building selecting=null;
 	
-	DecimalFormat df = new DecimalFormat("#.##");
+	DecimalFormat df = new DecimalFormat("#.###");
 	
 
 	public MetalClicker() {
@@ -103,6 +118,21 @@ public class MetalClicker {
 		buttons.add(new Button("buybooster",320, 64, "test", 32, 32, 1, this, 32, 32));
 		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this, 32, 32));
 		buttons.add(new Button("upgrade",16, 380, "upgrade", 64, 32, 2, this, 48, 16));
+		
+		
+		generateLevel();
+		
+		tileGrass = loadTexture("grass");
+		tileWater = loadTexture("water");
+		tileSand = loadTexture("sand");
+		tileSandCactus0 = loadTexture("sandcactus0");
+		tileSandCactus1 = loadTexture("sandcactus1");
+		tileSandCactus2 = loadTexture("sandcactus2");
+		tileSandCactus3 = loadTexture("sandcactus3");
+		tileMetalTL0 = loadTexture("metaltl0");
+		tileMetalTR0 = loadTexture("metaltr0");
+		tileMetalBL0 = loadTexture("metalbl0");
+		tileMetalBR0 = loadTexture("metalbr0");
 		
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
@@ -141,7 +171,7 @@ public class MetalClicker {
 	}
 	
 	private void perSecond(boolean add) { //This calls every second and updates resources
-		metalPerSecond = 0.1;             //Base metal per second
+		metalPerSecond = base_mps;             //Base metal per second
 		double income = getIncome();
 		metalPerSecond += income;
 		if(add){                                  //if false, we dont add
@@ -174,7 +204,7 @@ public class MetalClicker {
 	}
 
 	private float getBoostCutt(int id) {
-		if(id==1) return 1f;    //extractor
+		if(id==1) return 0.9f;    //extractor
 		if(id==2) return 1f;    //booster
 		if(id==3) return 1.75f;    //solar panel // Boost is halved.
 		return 1;
@@ -213,9 +243,23 @@ public class MetalClicker {
 
 	private void input() {
 		while (Keyboard.next()) {
-			if (Keyboard.getEventKey() == Keyboard.KEY_1 && Keyboard.getEventKeyState()) {
-				System.out.println("pressed 1");
-				selectExtractor();
+			if(Keyboard.getEventKeyState()){
+				if (Keyboard.getEventKey() == Keyboard.KEY_1) {
+					selectExtractor();
+				}
+				if (Keyboard.getEventKey() == Keyboard.KEY_2) {
+					selectBooster();
+				}
+				if (Keyboard.getEventKey() == Keyboard.KEY_3) {
+					selectSolarPanel();
+				}
+				if (Keyboard.getEventKey() == Keyboard.KEY_M) {
+					metalBank += 1000000000000L;
+				}
+				if (Keyboard.getEventKey() == Keyboard.KEY_G) {
+					generateLevel();
+				}
+				
 			}
 		}
 		
@@ -258,18 +302,18 @@ public class MetalClicker {
 
 	private void setStartStats(int id, Building ding) {
 		if(id==1){ //extractor 
-			ding.metalGen = 1;
-			ding.metalCost = 15;
-			ding.metalUsed = type1metal;
-			ding.energyCost = 1;
+			ding.metalGen   = 1;
+			ding.metalCost  = 15;
+			ding.metalUsed  = type1metal;
+			ding.energyCost = 1.25f;
 			ding.energyUsed = type1energy;
 		}
 		if(id==2){ //Booster
-			ding.metalCost = 25;
-			ding.metalUsed = type2metal;
-			ding.energyCost = 1.25f;
+			ding.metalCost  = 25;
+			ding.metalUsed  = type2metal;
+			ding.energyCost = 1f;
 			ding.energyUsed = type2energy;
-			ding.boostGen  = 0.0825f;
+			ding.boostGen   = 0.0825f;
 		}
 		if(id==3){ //Solar panel
 			ding.metalCost = 11;
@@ -375,13 +419,13 @@ public class MetalClicker {
 	private void upgradeBooster() {
 		selecting.metalCost  = (selecting.metalCost+3)*1.3;
 		selecting.energyCost = (selecting.energyCost)*1.10345;
-		selecting.boostGen   = (selecting.boostGen+0.001)*1.089;
+		selecting.boostGen   = (selecting.boostGen)*1.080;
 	}
 	
 	private void upgradeSolarPanel() {
 		selecting.metalCost  = (selecting.metalCost+2)*1.28;
 		//selecting.energyGen   = (selecting.energyGen+1)*1.02; //metal clicker 1 formula
-		selecting.energyGen   = (selecting.energyGen+1)+(selecting.level/10); //
+		selecting.energyGen   = (selecting.energyGen+1)+((float) selecting.level/10); //
 		selecting.boostGen   = (selecting.boostGen+0.005);
 	}
 
@@ -413,6 +457,10 @@ public class MetalClicker {
 		
 		glColor4f(0.1f, 1f, 0.1f, 1f);
 		glRecti(0,0, WIDTH, HEIGHT); //Whole background
+		
+		glEnable(GL_TEXTURE_2D);
+		renderTiles();
+		glDisable(GL_TEXTURE_2D);
 		
 		glColor4f(0.5f, 0.5f, 0.5f, 1f);
 		glRecti(0,0, XOFFSET, HEIGHT);
@@ -468,12 +516,27 @@ public class MetalClicker {
 			//}
 		}
 		
+		//Energy bar
+		glDisable(GL_TEXTURE_2D);
+		float eny = (float) (energyUse/energyMax);
+		glColor4f(0f+eny, 0f, 1f-eny, 0.4f);
+		eny*=480;
+		glRecti(XOFFSET-8, (int) (16+eny), XOFFSET, (int) (eny + (496-eny)));
+		glColor4f(1f, 1f, 0f, 1f);
+		glRecti(XOFFSET-5, (int) (16+eny), XOFFSET-3, (int) (eny + (496-eny)));
+		//glColor4f(0f, 0.8f, 0f, 0.4f);
+		//glRecti(XOFFSET-8, 16, XOFFSET, (int) (16+eny));
+		glEnable(GL_TEXTURE_2D);
+		
 		
 		font.drawString(0, 52, mx + ", " + my, Color.yellow);
 		font.drawString(0, 66, gridx + ", " + gridy, Color.yellow);
-		font.drawString(352, 40, String.valueOf(type1metal), Color.yellow);
-		font.drawString(352, 70, String.valueOf(type2metal), Color.yellow);
-		font.drawString(352, 102, String.valueOf(type3metal), Color.yellow);
+		font.drawString(354, 32, String.valueOf(type1metal), Color.red);
+		font.drawString(354, 46, String.valueOf(type1energy), Color.blue);
+		font.drawString(354, 64, String.valueOf(type2metal), Color.red);
+		font.drawString(354, 78, String.valueOf(type2energy), Color.blue);
+		font.drawString(354, 96, String.valueOf(type3metal), Color.red);
+		font.drawString(354, 110, String.valueOf(type3energy), Color.blue);
 		if(placing) {
 			font.drawString(0, 38, "Placing = true", Color.green);
 			if(gridx >= 0 && gridx <= 14 && gridy >= 0 && gridy <= 14) {
@@ -503,6 +566,67 @@ public class MetalClicker {
 		drawInfo();
 	}
 
+	private void renderTiles() {		
+		
+		for(int xx=0; xx<30; xx++){
+			for(int yy=0; yy<30; yy++){
+				getTileBind(xx, yy);
+				int x = (xx*16)+XOFFSET;
+				int y = (yy*16)+16;
+				
+				glColor3f(1,1,1); //White
+				glBegin(GL_QUADS);
+					glTexCoord2f(0,0);
+					glVertex2i(x,y);
+					glTexCoord2f(1,0);
+					glVertex2i(x+16,y);
+					glTexCoord2f(1,1);
+					glVertex2i(x+16,y+16);
+					glTexCoord2f(0,1);
+					glVertex2i(x,y+16);
+				glEnd();
+			}
+		}
+	}
+
+	private void getTileBind(int xx, int yy) {
+		switch(tiles[xx][yy]) {
+			case "grass":
+				tileGrass.bind();
+				break;
+			case "water":
+				tileWater.bind();
+				break;
+			case "sand":
+				tileSand.bind();
+				break;
+			case "sandcactus0":
+				tileSandCactus0.bind();
+				break;
+			case "sandcactus1":
+				tileSandCactus1.bind();
+				break;
+			case "sandcactus2":
+				tileSandCactus2.bind();
+				break;
+			case "sandcactus3":
+				tileSandCactus3.bind();
+				break;
+			case "metaltl0":
+				tileMetalTL0.bind();
+				break;
+			case "metaltr0":
+				tileMetalTR0.bind();
+				break;
+			case "metalbl0":
+				tileMetalBL0.bind();
+				break;
+			case "metalbr0":
+				tileMetalBR0.bind();
+				break;
+		}
+	}
+
 	private void drawInfo() { //Draw information like energy and metal 
 		font.drawString(0, 0, "Energy Limit:", Color.blue);
 		font.drawString(200, 0, makeString(energyMax), Color.blue);
@@ -523,6 +647,13 @@ public class MetalClicker {
 		font.drawString(0, 214, "Cost in Metal:", Color.yellow);
 		font.drawString(200, 214, makeString(stat_metalCost), Color.yellow);
 		drawMoreStats();
+		
+		if(metalBank <= selecting.metalCost){
+			font.drawString(16, 400, "Need metal!   in... " + df.format(Math.ceil((selecting.metalCost-metalBank)/metalPerSecond)), Color.red);
+		}
+		if((energyMax) <= (energyUse + selecting.energyCost)){
+			font.drawString(16, 414, "Need energy!", Color.blue);
+		}
 	}
 
 	private void drawMoreStats() {
@@ -563,6 +694,157 @@ public class MetalClicker {
 			//font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
 		}
 	}
+	
+	public void generateLevel(){
+		//Base default grass reset
+		for(int x=0; x<30; x++){
+			for(int y=0; y<30; y++){
+				tiles[x][y] = "grass"; //can add possible random tiles from here. Most likely for metal deposits
+			}
+		}
+		
+		Random gen = new Random();
+		int xx, yy, count=0, dir, pdir=5;
+		
+		xx = gen.nextInt(30);          
+		yy = gen.nextInt(30);
+		tiles[xx][yy] = "water"; //base start tile.
+		dir = gen.nextInt(4);    //Random direcion
+		while(count < 125){
+			
+			do{                  //to prevent going backwards (previous direction) 
+				dir = gen.nextInt(4);
+			} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
+		
+			pdir = dir;
+			
+			switch(dir){
+				default:
+    			case 0:
+    				xx++;
+    				if(xx>=30) {         //we don't want it to go out of the border, send it back.
+    					xx=29;
+    					System.out.println("hit over xx");
+    				} else {
+    					tiles[xx][yy] = "water";
+    					}
+    				break;
+    			case 1:
+    				xx--;
+    				if(xx<=-1) {
+    					xx=0;
+    					System.out.println("hit under xx");
+    				} else {
+    					tiles[xx][yy] = "water";
+    				}
+    				break;
+    			case 2:
+    				yy++;
+    				if(yy>=30) {
+    					yy=29;
+    					System.out.println("hit over yy");
+    				} else {
+    					tiles[xx][yy] = "water";
+    				}
+    				break;
+    			case 3:
+    				yy--;
+    				if(yy<=-1) {
+    					yy=0;
+    					System.out.println("hit under yy");
+    				} else {
+    					tiles[xx][yy] = "water";
+    				}
+    				break;
+			}
+			count++;
+		}
+		//Now a sand section
+		
+		xx = gen.nextInt(30);
+		yy = gen.nextInt(30);
+		tiles[xx][yy] = "sand";
+		dir = gen.nextInt(4);
+		count=0;
+		while(count < 75){
+			do{                  //to prevent going backwards (previous direction) 
+				dir = gen.nextInt(4);
+			} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
+		
+			pdir = dir;
+			
+			switch(dir){
+				default:
+    			case 0:
+    				xx++;
+    				if(xx>=30) {
+    					xx=29;
+    				} else {
+    					tiles[xx][yy] = "sand";
+    					if(gen.nextInt(8)==1){
+    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+    					}
+    				}
+    				break;
+    			case 1:
+    				xx--;
+    				if(xx<=-1) {
+    					xx=0;
+    				} else {
+    					tiles[xx][yy] = "sand";
+    					if(gen.nextInt(8)==1){
+    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+    					}
+    				}
+    				break;
+    			case 2:
+    				yy++;
+    				if(yy>=30) {
+    					yy=29;
+    				} else {
+    					tiles[xx][yy] = "sand";
+    					if(gen.nextInt(8)==1){
+    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+    					}
+    				}
+    				break;
+    			case 3:
+    				yy--;
+    				if(yy<=-1) {
+    					yy=0;
+    				} else {
+    					tiles[xx][yy] = "sand";
+    					if(gen.nextInt(8)==1){
+    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+    					}
+    				}
+    				break;
+			}
+			count++;
+		}
+    	count=0;
+    	int attempts=0, gridX, gridY;
+    	while(count <10 && attempts <= 500){
+    		gridX = gen.nextInt(13);
+    		gridY = gen.nextInt(13);
+    		xx = (gridX*2)+2;
+    		yy = (gridY*2)+2;
+
+    		if(tiles[xx][yy]=="grass" && tiles[xx+1][yy]=="grass" &&
+    				tiles[xx][yy+1]=="grass" && tiles[xx+1][yy+1]=="grass")
+    		{	
+    			tiles[xx][yy] = "metaltl0";
+    			tiles[xx+1][yy] = "metaltr0";
+    			tiles[xx][yy+1] = "metalbl0";
+    			tiles[xx+1][yy+1] = "metalbr0";
+        		count++;
+        		attempts++;
+    		}
+    	}
+		
+	}
+	
+	
 
 	private void getStats(Building ding) {
 		stat_id         = ding.id;
@@ -592,6 +874,7 @@ public class MetalClicker {
 	}
 	
 	public String makeString(Double make){
+		make = Math.abs(make);
 		if(make>=1000000000000000L) {
 			return df.format(make/1000000000000000L)+"Q"; }
 		else if(make>=1000000000000L) {
