@@ -31,6 +31,8 @@ public class Building {
 	public double boostGen=0, boostBy=1;
 	public double clickGen=0;
 	
+	public float energyPlus=0;
+	
 	public Texture texture;
 	
 	public boolean selected = false;
