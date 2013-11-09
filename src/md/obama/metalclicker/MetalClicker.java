@@ -27,7 +27,7 @@ import org.newdawn.slick.opengl.TextureLoader;
 
 import static org.lwjgl.opengl.GL11.*;
 
-public class MetalClicker {
+public class MetalClicker{
 	
 	private List<Building> builds = new ArrayList<Building>(225);
 	private Building[][] grid = new Building[15][15];
@@ -80,10 +80,15 @@ public class MetalClicker {
 	public double energyUse=0; //Current energy consumption
 	
 	private long lastFrame;
+	
+//	private boolean isApplet=false;  //Applet attempt fields
+//	private boolean running=false;
+//	Canvas display_parent;
+//	Thread gameThread;
 
-	private boolean somethingIsSelected=false;
+	//private boolean somethingIsSelected=false; //unused atm
 	private boolean placing = false;
-	private boolean moving = false;
+	//private boolean moving = false;            //unused atm
 	private boolean selling = false;
 	
 	private int place_id;
@@ -99,7 +104,7 @@ public class MetalClicker {
 	
 
 	public MetalClicker() {
-		init();             //initialize
+		initialization();             //initialize
 		lastFrame = getTime();
 		
 		Building ding = new Building(1,5,5,"test");
@@ -110,14 +115,40 @@ public class MetalClicker {
 		buttons.add(new Button("buysolarpanel",320, 96, "solarpanel", 32, 32, 1, this, 32, 32));
 		buttons.add(new Button("upgrade",16, 380, "upgrade", 64, 32, 2, this, 48, 16));
 		
-		tile.generateLevel();
-
 		
+		loadGame();
+		tile.generateLevel();
+		
+
+//		if(isApplet) {
+//			gameThread = new Thread() {
+//				public void run() {
+//					running = true;
+//				try {
+//					Display.setParent(display_parent);
+//					Display.create();
+//					initGL();
+//					} catch (LWJGLException e) {
+//					e.printStackTrace();
+//					return;
+//				}
+//					gameLoop();
+//				}
+//			};
+//			gameThread.start();
+//		}
+//		else 
+		gameLoop();
+		
+		
+	}
+	
+	private void gameLoop() {
 		while (!Display.isCloseRequested()){
             glClear(GL_COLOR_BUFFER_BIT);
             //Clear the buffer before we start
             
-            int delta = getDelta();
+            //int delta = getDelta();  //Unused, lets comment out.
             mx = Mouse.getX()+1;
             my = HEIGHT - Mouse.getY()+1;
             gridx = Math.round(((mx-XOFFSET)/32));
@@ -148,9 +179,8 @@ public class MetalClicker {
         }
         Display.destroy();
         System.exit(0);
-		
 	}
-	
+
 	private void perSecond(boolean add) { //This calls every second and updates resources
 		metalPerSecond = base_mps;             //Base metal per second
 		double income = getIncome();
@@ -193,7 +223,7 @@ public class MetalClicker {
 
 	private double getIncome() {
 		double meGen=0, meGenTemp;
-		double enGen=0, enGenTemp;
+		//double enGen=0, enGenTemp;
 		double boost;
 		float cutt;
 		for(Building ding : builds){
@@ -235,7 +265,7 @@ public class MetalClicker {
 					selectSolarPanel();
 				}
 				if (Keyboard.getEventKey() == Keyboard.KEY_M) {
-					metalBank += 1000000000000L;
+					metalBank += 1000000000000000000000000000000D;
 				}
 				if (Keyboard.getEventKey() == Keyboard.KEY_G) {
 					tile.generateLevel();
@@ -270,7 +300,9 @@ public class MetalClicker {
 							int meCost = getTypeCostMetal(place_id);
 							int enCost = getTypeCostEnergy(place_id);
 							if (tile.canPlaceHere(place_id)){
-								if(metalBank >= meCost && energyMax >= (energyUse + enCost) ) {
+								System.out.println(place_id);
+								if((metalBank >= meCost || meCost == 0) && ((energyMax) >= (energyUse + enCost) ) || enCost==0) {
+									
 									metalBank-= meCost;
 									addTypeCostMetal(place_id, 1);
 									Building ding = new Building(place_id, gridx, gridy, place_texture);
@@ -279,6 +311,7 @@ public class MetalClicker {
 									setStartStats(place_id, ding);
 									System.out.println("Placed "+ getName(place_id));
 									placing = false;
+									tile.canGenerate=false;
 								}
 							}
 						} else System.out.println("Grid location already used");
@@ -286,7 +319,7 @@ public class MetalClicker {
 				}
 			}else if(Mouse.isButtonDown(1)){ //Right click
 					placing = false;
-					moving  = false;
+					//moving  = false;   //unused atm
 			}
 		}
 	}
@@ -313,10 +346,10 @@ public class MetalClicker {
 			int tx = gridx*2;
 			int ty = gridy*2;
 			float sand=0;
-			if(tile.getTile(tx, ty)=="sand") sand+=0.1f;    //Placing in the desert gives bonus
-			if(tile.getTile(tx+1, ty)=="sand") sand+=0.1f;
-			if(tile.getTile(tx, ty+1)=="sand") sand+=0.1f;
-			if(tile.getTile(tx+1, ty+1)=="sand") sand+=0.1f;
+			if(tile.getTile(tx, ty).replaceAll("cactus", "").equals("sand")) sand+=0.1f;    //Placing in the desert gives bonus
+			if(tile.getTile(tx+1, ty).replaceAll("cactus", "").equals("sand")) sand+=0.1f;
+			if(tile.getTile(tx, ty+1).replaceAll("cactus", "").equals("sand")) sand+=0.1f;
+			if(tile.getTile(tx+1, ty+1).replaceAll("cactus", "").equals("sand")) sand+=0.1f;
 			ding.energyPlus = sand;
 			ding.energyGen = 1+sand;
 		}
@@ -351,7 +384,7 @@ public class MetalClicker {
 	}
 	
 	private void selectBooster() {
-		Random gen = new Random(System.currentTimeMillis());
+		//Random gen = new Random(System.currentTimeMillis());
 		placing = true;
 		place_id = 2;       //id of the building. Booster
 		place_texture = "booster0";//+gen.nextInt(3);
@@ -392,7 +425,7 @@ public class MetalClicker {
 				boost+=1;
 				enIncr*=boost;
 				//if the upgrade of the energy with the boost adds onto it
-				if (metalBank >= meCost && (energyMax+enIncr) >= (energyUse + enCost) ) {
+				if ((metalBank >= meCost || meCost == 0) && ((energyMax+enIncr) >= (energyUse + enCost) ) || enCost==0) {
 					metalBank -= meCost;
 					     if(selecting.id==1) upgradeExtractor();
 					else if(selecting.id==2) upgradeBooster();
@@ -458,9 +491,7 @@ public class MetalClicker {
 		glColor4f(0.1f, 1f, 0.1f, 1f);
 		glRecti(0,0, WIDTH, HEIGHT); //Whole background
 		
-		glEnable(GL_TEXTURE_2D);
-		renderTiles();
-		glDisable(GL_TEXTURE_2D);
+		tile.renderTiles();
 		
 		glColor4f(0.5f, 0.5f, 0.5f, 1f);
 		glRecti(0,0, XOFFSET, HEIGHT);
@@ -535,6 +566,7 @@ public class MetalClicker {
 		font.drawString(0, 52, mx + ", " + my, Color.yellow);
 		font.drawString(0, 66, gridx + ", " + gridy, Color.yellow);
 		font.drawString(0, 80, tilex + ", " + tiley, Color.yellow);
+		if(tile.canGenerate) font.drawString(0, 94, "Press G to generate the world", Color.green);
 		font.drawString(354, 32, String.valueOf(type1metal), Color.red);
 		font.drawString(354, 46, String.valueOf(type1energy), Color.blue);
 		font.drawString(354, 64, String.valueOf(type2metal), Color.red);
@@ -570,28 +602,6 @@ public class MetalClicker {
 		drawInfo();
 	}
 
-	private void renderTiles() {
-		for(int xx=0; xx<30; xx++){
-			for(int yy=0; yy<30; yy++){
-				tile.getTileBind(xx, yy);
-				int x = (xx*16)+XOFFSET;
-				int y = (yy*16)+16;
-				
-				glColor3f(1,1,1); //White
-				glBegin(GL_QUADS);
-					glTexCoord2f(0,0);
-					glVertex2i(x,y);
-					glTexCoord2f(1,0);
-					glVertex2i(x+16,y);
-					glTexCoord2f(1,1);
-					glVertex2i(x+16,y+16);
-					glTexCoord2f(0,1);
-					glVertex2i(x,y+16);
-				glEnd();
-			}
-		}
-	}
-
 	private void drawInfo() { //Draw information like energy and metal 
 		font.drawString(0, 0, "Energy Limit:", Color.blue);
 		font.drawString(200, 0, makeString(energyMax), Color.blue);
@@ -613,10 +623,10 @@ public class MetalClicker {
 		font.drawString(200, 214, makeString(stat_metalCost), Color.yellow);
 		drawMoreStats();
 		
-		if(metalBank <= selecting.metalCost){
+		if((metalBank <= selecting.metalCost) && selecting.metalCost != 0){
 			font.drawString(16, 400, "Need metal!   in... " + df.format(Math.ceil((selecting.metalCost-metalBank)/metalPerSecond)), Color.red);
 		}
-		if((energyMax) <= (energyUse + selecting.energyCost)){
+		if((energyMax) <= (energyUse + selecting.energyCost) && selecting.energyCost != 0){
 			font.drawString(16, 414, "Need energy!", Color.blue);
 		}
 	}
@@ -659,6 +669,15 @@ public class MetalClicker {
 			//font.drawString(200, 288, makeString(stat_boostBy), Color.yellow);
 		}
 	}
+	
+	private void loadGame(){
+		//Load game here
+		
+		if(!builds.isEmpty())
+			tile.canGenerate=true;
+		else tile.canGenerate=false;
+		
+	}
 
 	private void getStats(Building ding) {
 		stat_id         = ding.id;
@@ -689,6 +708,16 @@ public class MetalClicker {
 	
 	public String makeString(Double make){
 		make = Math.abs(make);
+		if(make>=1000000000000000000000D) {
+			int exten=0;
+			while (make>=999){
+				make/=1000;
+				exten++;
+			}
+			return df.format(make) + "E+" + exten;
+		}
+		if(make>=1000000000000000000D) {
+			return df.format(make/1000000000000000000D)+"QT"; }
 		if(make>=1000000000000000L) {
 			return df.format(make/1000000000000000L)+"Q"; }
 		else if(make>=1000000000000L) {
@@ -703,6 +732,7 @@ public class MetalClicker {
 	}
 	
 	
+	@SuppressWarnings("unchecked")
 	private void initFont() {
 		font = new UnicodeFont(new java.awt.Font ("Vani", Font.BOLD, 12));
 		font.getEffects().add(new ColorEffect(java.awt.Color.white));
@@ -715,7 +745,7 @@ public class MetalClicker {
 	}
 
 	
-	public void init() {
+	public void initialization() {
 		initGL();       //Setup openGL
 		initFont();     //Setup our fonts
 		tile.initTextures(this);
@@ -759,12 +789,53 @@ public class MetalClicker {
 		return (Sys.getTime() * 1000) / Sys.getTimerResolution();
 	}
 	
+	@SuppressWarnings("unused")
 	private int getDelta(){
 		long currentTime = getTime();
 		int delta = (int) (currentTime - lastFrame);
 		lastFrame = currentTime;
 		return delta;
 	}
+	
+//	private void stopLWJGL() {  //applet attempt
+//		running = false;
+//		try {
+//			gameThread.join();
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
+//	}
+	
+//	public void init() {  //Applet attempt
+//		isApplet = true;
+//		setLayout(new BorderLayout());
+//		try {
+//			display_parent = new Canvas() {
+//				public final void addNotify() {
+//					super.addNotify();
+//					new MetalClicker();
+//				}
+//				public final void removeNotify() {
+//					stopLWJGL();
+//					super.removeNotify();
+//				}
+//			};
+//			display_parent.setSize(WIDTH,HEIGHT);
+//			add(display_parent);
+//			display_parent.setFocusable(true);
+//			display_parent.requestFocus();
+//			display_parent.setIgnoreRepaint(true);
+//			setVisible(true);
+//		} catch (Exception e) {
+//			System.err.println(e);
+//			throw new RuntimeException("Unable to create display");
+//		}
+//	}
+	
+//	public void destroy() {  //Applet attempt
+//		remove(display_parent);
+//		super.destroy();
+//	}
 	
 	public static void main(String[] args) {
 		new MetalClicker();

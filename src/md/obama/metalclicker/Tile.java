@@ -1,5 +1,15 @@
 package md.obama.metalclicker;
 
+import static org.lwjgl.opengl.GL11.GL_QUADS;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.glBegin;
+import static org.lwjgl.opengl.GL11.glColor3f;
+import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glEnd;
+import static org.lwjgl.opengl.GL11.glTexCoord2f;
+import static org.lwjgl.opengl.GL11.glVertex2i;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -12,6 +22,8 @@ import org.newdawn.slick.opengl.TextureLoader;
 public class Tile {
 	
 	private String[][] tiles = new String[30][30];
+	
+	public boolean canGenerate=true;
 	
 	private Texture tileGrass;
 	private Texture tileWater0;
@@ -31,10 +43,10 @@ public class Tile {
 	protected MetalClicker game;
 	
 	public boolean containsShaped(int xx, int yy, String str1, String str2, String str3, String str4){
-		if ((tiles[xx][yy]) ==( str1)
-		 && (tiles[xx+1][yy]) == (str2)
-		 && (tiles[xx][yy+1]) == (str3)
-		 && (tiles[xx+1][yy+1]) == (str4)) {
+		if ((tiles[xx][yy].replaceAll("[0-9]", ""))     .equals(str1)
+		 && (tiles[xx+1][yy].replaceAll("[0-9]", ""))   .equals(str2)
+		 && (tiles[xx][yy+1].replaceAll("[0-9]", ""))   .equals(str3)
+		 && (tiles[xx+1][yy+1].replaceAll("[0-9]", "")) .equals(str4)) {
 					return true;
 				}
 		else return false;
@@ -52,7 +64,9 @@ public class Tile {
 				for (int y=0; y<2; y++){
 					if(list[i]=="") blist[i] = true;    //if its empty, set it to true as we are not looking for it
 					else {
-						if (tiles[xx+x][yy+y]==list[i]) blist[i] = true;
+						String tiel = tiles[xx+x][yy+y].replaceAll("[0-9]", "");
+						//String tiel = removeLastChar(tiles[xx+x][yy+y]);
+						if (tiel.equals(list[i])) blist[i] = true;
 					}
 				}
 			}
@@ -66,24 +80,26 @@ public class Tile {
 		int ttx = game.gridx*2;
 		int tty = game.gridy*2;
 		
-		switch (id) {
+		switch (id) {           //We do not include numbers in the checkings here.
 			case 1:
-				if(containsShaped(ttx,tty, "metaltl0", "metaltr0", "metalbl0", "metalbr0")){
+				if(containsShaped(ttx,tty, "metaltl", "metaltr", "metalbl", "metalbr")){
 					return true;
 				}
 				else System.out.println("Error, Extractor must be placed on metal deposits");
 				break;
 			case 2:
-				if(containsShapeless(ttx,tty, "grass", "", "", "")){
+				if(containsShaped(ttx,tty, "grass", "grass", "grass", "grass")){
 					return true;
 				}
 				else System.out.println("Error, Booster must be placed on grass");
 				break;
-			case 3:
-				if(containsShapeless(ttx,tty, "grass", "", "", "")){
-					return true;
-				}
-				else if(containsShapeless(ttx,tty, "sand", "", "", "")){
+			case 3: //Solar Array
+				if(containsShapeless(ttx,tty, "water", "", "", "")){
+					return false; //Return false if it includes water.
+				}	
+				else if(containsShapeless(ttx,tty, "grass", "", "", "")
+				|| containsShapeless(ttx,tty, "sand", "", "", "")
+				|| containsShapeless(ttx,tty, "sandcactus", "", "", "")){
 					return true;
 				}
 				else System.out.println("Error, Solar must be placed on grass or sand");
@@ -93,7 +109,7 @@ public class Tile {
 	}
 	
 	public String getTile(int x, int y){
-		return tiles[x][y];
+		return tiles[x][y].replaceAll("[0-9]", "");
 	}
 	
 	public void initTextures(MetalClicker game){
@@ -116,191 +132,220 @@ public class Tile {
 	}
 	
 	public void generateLevel(){
+		if(canGenerate){
 		//Base default grass reset
-		for(int x=0; x<30; x++){
-			for(int y=0; y<30; y++){
-				tiles[x][y] = "grass"; //can add possible random tiles from here. Most likely for metal deposits
+			for(int x=0; x<30; x++){
+				for(int y=0; y<30; y++){
+					tiles[x][y] = "grass"; //can add possible random tiles from here. Most likely for metal deposits
+				}
 			}
-		}
-		
-		Random gen = new Random();
-		int xx, yy, count=0, dir, pdir=5;
-		
-		xx = gen.nextInt(30);          
-		yy = gen.nextInt(30);
-		tiles[xx][yy] = "water"; //base start tile.
-		dir = gen.nextInt(4);    //Random direcion
-		while(count < 125){
 			
-			do{                  //to prevent going backwards (previous direction) 
-				dir = gen.nextInt(4);
-			} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
-		
-			pdir = dir;
+			Random gen = new Random();
+			int xx, yy, count=0, dir, pdir=5;
 			
-			switch(dir){
-				default:
-    			case 0:
-    				xx++;
-    				if(xx>=30) {         //we don't want it to go out of the border, send it back.
-    					xx=29;
-    				} else {
-    					tiles[xx][yy] = "water";
-    					}
-    				break;
-    			case 1:
-    				xx--;
-    				if(xx<=-1) {
-    					xx=0;
-    				} else {
-    					tiles[xx][yy] = "water";
-    				}
-    				break;
-    			case 2:
-    				yy++;
-    				if(yy>=30) {
-    					yy=29;
-    				} else {
-    					tiles[xx][yy] = "water";
-    				}
-    				break;
-    			case 3:
-    				yy--;
-    				if(yy<=-1) {
-    					yy=0;
-    				} else {
-    					tiles[xx][yy] = "water";
-    				}
-    				break;
+			xx = gen.nextInt(30);          
+			yy = gen.nextInt(30);
+			tiles[xx][yy] = "water"; //base start tile.
+			dir = gen.nextInt(4);    //Random direcion
+			while(count < 125){
+				
+				do{                  //to prevent going backwards (previous direction) 
+					dir = gen.nextInt(4);
+				} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
+			
+				pdir = dir;
+				
+				switch(dir){
+					default:
+	    			case 0:
+	    				xx++;
+	    				if(xx>=30) {         //we don't want it to go out of the border, send it back.
+	    					xx=29;
+	    				} else {
+	    					tiles[xx][yy] = "water";
+	    					}
+	    				break;
+	    			case 1:
+	    				xx--;
+	    				if(xx<=-1) {
+	    					xx=0;
+	    				} else {
+	    					tiles[xx][yy] = "water";
+	    				}
+	    				break;
+	    			case 2:
+	    				yy++;
+	    				if(yy>=30) {
+	    					yy=29;
+	    				} else {
+	    					tiles[xx][yy] = "water";
+	    				}
+	    				break;
+	    			case 3:
+	    				yy--;
+	    				if(yy<=-1) {
+	    					yy=0;
+	    				} else {
+	    					tiles[xx][yy] = "water";
+	    				}
+	    				break;
+				}
+				count++;
 			}
-			count++;
-		}
-		//Now a sand section
-		
-		xx = gen.nextInt(30);
-		yy = gen.nextInt(30);
-		tiles[xx][yy] = "sand";
-		dir = gen.nextInt(4);
-		count=0;
-		while(count < 75){
-			do{                  //to prevent going backwards (previous direction) 
-				dir = gen.nextInt(4);
-			} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
-		
-			pdir = dir;
+			//Now a sand section
 			
-			switch(dir){
-				default:
-    			case 0:
-    				xx++;
-    				if(xx>=30) {
-    					xx=29;
-    				} else {
-    					tiles[xx][yy] = "sand";
-    					if(gen.nextInt(8)==1){
-    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
-    					}
-    				}
-    				break;
-    			case 1:
-    				xx--;
-    				if(xx<=-1) {
-    					xx=0;
-    				} else {
-    					tiles[xx][yy] = "sand";
-    					if(gen.nextInt(8)==1){
-    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
-    					}
-    				}
-    				break;
-    			case 2:
-    				yy++;
-    				if(yy>=30) {
-    					yy=29;
-    				} else {
-    					tiles[xx][yy] = "sand";
-    					if(gen.nextInt(8)==1){
-    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
-    					}
-    				}
-    				break;
-    			case 3:
-    				yy--;
-    				if(yy<=-1) {
-    					yy=0;
-    				} else {
-    					tiles[xx][yy] = "sand";
-    					if(gen.nextInt(8)==1){
-    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
-    					}
-    				}
-    				break;
+			xx = gen.nextInt(30);
+			yy = gen.nextInt(30);
+			tiles[xx][yy] = "sand";
+			dir = gen.nextInt(4);
+			count=0;
+			while(count < 75){
+				do{                  //to prevent going backwards (previous direction) 
+					dir = gen.nextInt(4);
+				} while (dir==0 && pdir==1 || dir==1 && pdir==0 || dir==3 && pdir==4 || dir==4 && pdir==3);
+			
+				pdir = dir;
+				
+				switch(dir){
+					default:
+	    			case 0:
+	    				xx++;
+	    				if(xx>=30) {
+	    					xx=29;
+	    				} else {
+	    					tiles[xx][yy] = "sand";
+	    					if(gen.nextInt(8)==1){
+	    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+	    					}
+	    				}
+	    				break;
+	    			case 1:
+	    				xx--;
+	    				if(xx<=-1) {
+	    					xx=0;
+	    				} else {
+	    					tiles[xx][yy] = "sand";
+	    					if(gen.nextInt(8)==1){
+	    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+	    					}
+	    				}
+	    				break;
+	    			case 2:
+	    				yy++;
+	    				if(yy>=30) {
+	    					yy=29;
+	    				} else {
+	    					tiles[xx][yy] = "sand";
+	    					if(gen.nextInt(8)==1){
+	    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+	    					}
+	    				}
+	    				break;
+	    			case 3:
+	    				yy--;
+	    				if(yy<=-1) {
+	    					yy=0;
+	    				} else {
+	    					tiles[xx][yy] = "sand";
+	    					if(gen.nextInt(8)==1){
+	    						tiles[xx][yy] = "sandcactus"+gen.nextInt(4);
+	    					}
+	    				}
+	    				break;
+				}
+				count++;
 			}
-			count++;
-		}
-    	count=0;
-    	int attempts=0, gridX, gridY;
-    	while(count <10 && attempts <= 500){
-    		gridX = gen.nextInt(13);
-    		gridY = gen.nextInt(13);
-    		xx = (gridX*2)+2;
-    		yy = (gridY*2)+2;
-
-    		if(tiles[xx][yy]=="grass" && tiles[xx+1][yy]=="grass" &&
-    				tiles[xx][yy+1]=="grass" && tiles[xx+1][yy+1]=="grass")
-    		{	
-    			tiles[xx][yy] = "metaltl0";
-    			tiles[xx+1][yy] = "metaltr0";
-    			tiles[xx][yy+1] = "metalbl0";
-    			tiles[xx+1][yy+1] = "metalbr0";
-        		count++;
-        		attempts++;
-    		}
-    	}
-	}
+	    	count=0;
+	    	int attempts=0, gridX, gridY;
+	    	while(count <10 && attempts <= 500){
+	    		gridX = gen.nextInt(13);
+	    		gridY = gen.nextInt(13);
+	    		xx = (gridX*2)+2;
+	    		yy = (gridY*2)+2;
 	
+	    		if(tiles[xx][yy]=="grass" && tiles[xx+1][yy]=="grass" &&
+	    				tiles[xx][yy+1]=="grass" && tiles[xx+1][yy+1]=="grass")
+	    		{	
+	    			tiles[xx][yy] = "metaltl0";
+	    			tiles[xx+1][yy] = "metaltr0";
+	    			tiles[xx][yy+1] = "metalbl0";
+	    			tiles[xx+1][yy+1] = "metalbr0";
+	        		count++;
+	        		attempts++;
+	    		}
+	    	}
+		}
+}
+		
 	public void getTileBind(int xx, int yy) {
-		switch(tiles[xx][yy]) {
-			case "grass":
-				tileGrass.bind();
-				break;
-			case "water":
-				int use = game.fps*2;      //speed control over how fast we change water tile.
-				if(game.ticks%use<=(use/4)) tileWater0.bind();
-				else if(game.ticks%use<=(use/4)*2) tileWater1.bind();
-				else if(game.ticks%use<=(use/4)*3) tileWater2.bind();
-				else if(game.ticks%use<=(use/4)*4) tileWater1.bind();
-				break;
-			case "sand":
-				tileSand.bind();
-				break;
-			case "sandcactus0":
-				tileSandCactus0.bind();
-				break;
-			case "sandcactus1":
-				tileSandCactus1.bind();
-				break;
-			case "sandcactus2":
-				tileSandCactus2.bind();
-				break;
-			case "sandcactus3":
-				tileSandCactus3.bind();
-				break;
-			case "metaltl0":
-				tileMetalTL0.bind();
-				break;
-			case "metaltr0":
-				tileMetalTR0.bind();
-				break;
-			case "metalbl0":
-				tileMetalBL0.bind();
-				break;
-			case "metalbr0":
-				tileMetalBR0.bind();
-				break;
-		}
+		if(tiles[xx][yy] != null) {
+			switch(tiles[xx][yy]) {
+				case "grass":
+					tileGrass.bind();
+					break;
+				case "water":
+					int use = game.fps*2;      //speed control over how fast we change water tile.
+					if(game.ticks%use<=(use/4)) tileWater0.bind();
+					else if(game.ticks%use<=(use/4)*2) tileWater1.bind();
+					else if(game.ticks%use<=(use/4)*3) tileWater2.bind();
+					else if(game.ticks%use<=(use/4)*4) tileWater1.bind();
+					break;
+				case "sand":
+					tileSand.bind();
+					break;
+				case "sandcactus0":
+					tileSandCactus0.bind();
+					break;
+				case "sandcactus1":
+					tileSandCactus1.bind();
+					break;
+				case "sandcactus2":
+					tileSandCactus2.bind();
+					break;
+				case "sandcactus3":
+					tileSandCactus3.bind();
+					break;
+				case "metaltl0":
+					tileMetalTL0.bind();
+					break;
+				case "metaltr0":
+					tileMetalTR0.bind();
+					break;
+				case "metalbl0":
+					tileMetalBL0.bind();
+					break;
+				case "metalbr0":
+					tileMetalBR0.bind();
+					break;
+			}
+		} else
+			System.out.println("[SEVERE] Cannot bind tile as tile in list is not set!");
 	}
 	
+	public void renderTiles() {
+		glEnable(GL_TEXTURE_2D);
+		for(int xx=0; xx<30; xx++){
+			for(int yy=0; yy<30; yy++){
+				getTileBind(xx, yy);
+				int x = (xx*16)+game.XOFFSET;
+				int y = (yy*16)+16;
+				
+				glColor3f(1,1,1); //White
+				glBegin(GL_QUADS);
+					glTexCoord2f(0,0);
+					glVertex2i(x,y);
+					glTexCoord2f(1,0);
+					glVertex2i(x+16,y);
+					glTexCoord2f(1,1);
+					glVertex2i(x+16,y+16);
+					glTexCoord2f(0,1);
+					glVertex2i(x,y+16);
+				glEnd();
+			}
+		}
+		glDisable(GL_TEXTURE_2D);
+	}
+		
 	private Texture loadTexture(String key){
 		try {
 			return TextureLoader.getTexture("PNG", new FileInputStream(new File("res/" + key + ".png")));
@@ -311,5 +356,6 @@ public class Tile {
 		}
 		return null;
 	}
+	
 	
 }
